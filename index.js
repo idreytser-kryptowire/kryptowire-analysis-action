@@ -41,6 +41,7 @@ async function run() {
         }
       );
       console.log("KryptowireUUID: ", response.data.uuid);
+      console.log("https://mast.kryptowire.com/#/" + apiKey + "-report/" + response.data.uuid );
     } catch (err) {
       console.log("Error with upload:", err);
     }
