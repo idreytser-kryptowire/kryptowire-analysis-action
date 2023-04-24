@@ -85,7 +85,8 @@ async function run() {
       }
       console.log('Upload successful!  Server responded with:', body);
       const jj = JSON.parse(body);
-      console.log("KryptowireUUID: ", jj.uuid);
+      console.log("Quokka UUID: ", jj.uuid);
+      console.log("Now Scanning apk...");
     });
   
     
