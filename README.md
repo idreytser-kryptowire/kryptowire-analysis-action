@@ -1,6 +1,6 @@
-# Kryptowire App Submission Action
+# Quokka (Kryptowire) App Submission Action
 
-This action takes the file path, platform & API key as input and submits the app file to Kryptowire Portal for analysis
+This action takes the file path, platform & API key as input and submits the app file to Quokka Portal for analysis
 
 ## Prerequisite
 
@@ -29,7 +29,7 @@ This action takes the file path, platform & API key as input and submits the app
 
 ## Outputs
 
-### `KryptowireUUID`
+### `Quokka UUID`
 
 UUID of the submitted app for analysis.
 
