@@ -1,5 +1,5 @@
-name: "Kryptowire Analysis"
-description: "Submit app file to the Kryptowire Portal for analysis"
+name: "Quokka"
+description: "Prevent zero-day attacks with the only mobile security intelligence with contextual awareness. Scan your applications on Quokka's Mobile Application Secuirty Testing Platform."
 inputs:
   path-to-file:
     description: "Path to the artifact file"
