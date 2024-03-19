@@ -1,5 +1,6 @@
 name: "Quokka MAST"
 description: "Scan your applications on Quokka's Mobile Application Security Testing Platform."
+author: "Quokka"
 inputs:
   path-to-file:
     description: "Path to the artifact file"
