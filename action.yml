@@ -1,5 +1,5 @@
 name: "Quokka MAST"
-description: "Prevent zero-day attacks with the only mobile security intelligence with contextual awareness. Scan your applications on Quokka's Mobile Application Secuirty Testing Platform."
+description: "Scan your applications on Quokka's Mobile Application Security Testing Platform."
 inputs:
   path-to-file:
     description: "Path to the artifact file"
