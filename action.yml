@@ -1,4 +1,4 @@
-name: "Quokka"
+name: "Quokka MAST"
 description: "Prevent zero-day attacks with the only mobile security intelligence with contextual awareness. Scan your applications on Quokka's Mobile Application Secuirty Testing Platform."
 inputs:
   path-to-file:
