@@ -1,6 +1,5 @@
-name: "Quokka MAST"
-description: "Scan your applications on Quokka's Mobile Application Security Testing Platform."
-author: "Quokka"
+name: "Quokka Analysis"
+description: "Submit app file to the Quokka (Kryptowire) Portal for analysis"
 inputs:
   path-to-file:
     description: "Path to the artifact file"
@@ -12,8 +11,9 @@ inputs:
     description: "API Key for the user"
     required: true
 runs:
-  using: "node12"
-  main: "index.js"
+  using: 'node20'
+  main: 'dist/index.js' 
 branding:
   icon: "award"
   color: "green"
+

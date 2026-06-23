@@ -1,26 +1,29 @@
 {
-  "name": "kryptowire-analysis-action",
+  "name": "quokka-analysis-action",
   "version": "1.0.0",
-  "description": "Kryptowire Analysis Action",
-  "main": "index.js",
+  "description": "Quokka (Kryptowire) Analysis Action",
+  "exports": { ".": "./dist/index.js" },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+    "build": "ncc build index.js -o dist"
+  },  
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pkumar001/kryptowire-analysis-action.git"
+    "url": "git+https://github.com/idreytser-kryptowire/kryptowire-analysis-action.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/pkumar001/kryptowire-analysis-action/issues"
+    "url": "https://github.com/idreytser-kryptowire/kryptowire-analysis-action/issues"
   },
-  "homepage": "https://github.com/pkumar001/kryptowire-analysis-action#readme",
+  "homepage": "https://github.com/idreytser-kryptowire/kryptowire-analysis-action#readme",
   "dependencies": {
-    "@actions/core": "^1.2.4",
-    "@actions/github": "^3.0.0",
-    "request": "^2.88.2",
-    "form-data": "^3.0.0"
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.1",
+    "form-data": "^3.0.4",
+    "request": "^2.88.2"
+  },
+  "devDependencies": {
+    "@vercel/ncc": "^0.38.4"
   }
 }
