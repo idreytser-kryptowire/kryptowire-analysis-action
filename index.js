@@ -1,6 +1,7 @@
 const core = require("@actions/core");
 const fs = require("fs");
 const FormData = require("form-data");
+const path = require('path');
 
 async function downloadArtifact( uuid, apiKey, pathToFile ) {
     let elapsed_time = 0;

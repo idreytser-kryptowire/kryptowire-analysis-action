@@ -30177,6 +30177,7 @@ var __webpack_exports__ = {};
 const core = __nccwpck_require__(7484);
 const fs = __nccwpck_require__(9896);
 const FormData = __nccwpck_require__(6454);
+const path = __nccwpck_require__(6928);
 
 async function downloadArtifact( uuid, apiKey, pathToFile ) {
     let elapsed_time = 0;
