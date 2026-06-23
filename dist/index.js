@@ -28254,6 +28254,14 @@ module.exports = {
 
 /***/ }),
 
+/***/ 9167:
+/***/ ((module) => {
+
+module.exports = eval("require")("requests");
+
+
+/***/ }),
+
 /***/ 2613:
 /***/ ((module) => {
 
@@ -30177,7 +30185,7 @@ var __webpack_exports__ = {};
 const core = __nccwpck_require__(7484);
 const fs = __nccwpck_require__(9896);
 const FormData = __nccwpck_require__(6454);
-
+const requests = __nccwpck_require__(9167);
 async function downloadArtifact( uuid, apiKey, pathToFile ) {
     let elapsed_time = 0;
 
@@ -30235,12 +30243,17 @@ async function run() {
     form.append("platform", platform);
     form.append("app", fs.createReadStream(pathToFile));
 
-    const response = await fetch('https://api.kryptowire.com/api/submit', {
+	params = {'key': apiKey, 'platform': platform}
+	app_file = {'app': open('pathToFile', 'rb')}
+	const response = requests.post('https://api.kryptowire.com/api/submit', data=params, files=app_file)
+
+    /*
+	const response = await fetch('https://api.kryptowire.com/api/submit', {
       method: 'POST',
       body: form,
       headers: form.getHeaders()
     });
-
+*/
 
 	console.log(response);
     if (!response.ok) {

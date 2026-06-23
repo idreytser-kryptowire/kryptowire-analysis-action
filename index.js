@@ -1,7 +1,7 @@
 const core = require("@actions/core");
 const fs = require("fs");
 const FormData = require("form-data");
-
+const requests = require("requests");
 async function downloadArtifact( uuid, apiKey, pathToFile ) {
     let elapsed_time = 0;
 
@@ -59,12 +59,17 @@ async function run() {
     form.append("platform", platform);
     form.append("app", fs.createReadStream(pathToFile));
 
-    const response = await fetch('https://api.kryptowire.com/api/submit', {
+	params = {'key': apiKey, 'platform': platform}
+	app_file = {'app': open('pathToFile', 'rb')}
+	const response = requests.post('https://api.kryptowire.com/api/submit', data=params, files=app_file)
+
+    /*
+	const response = await fetch('https://api.kryptowire.com/api/submit', {
       method: 'POST',
       body: form,
       headers: form.getHeaders()
     });
-
+*/
 
 	console.log(response);
     if (!response.ok) {
