@@ -55,18 +55,18 @@ async function run() {
 
 	console.log ("apikey: " + apiKey );
 	
-    const form = new FormData();
-    form.append("key", apiKey);
-    form.append("platform", platform);
-    form.append("app", new Blob([fs.readFileSync(pathToFile)]), path.basename(pathToFile));
-
+    const formData = new FormData();
+    formData.append("key", apiKey);
+    formData.append("platform", platform);
+	formData.append('app', await fs.openAsBlob(pathToFile), path.basename(pathToFile));
 
 	const response = await fetch('https://api.kryptowire.com/api/submit', {
       method: 'POST',
-      body: form,
+      body: formData,
     });
 
 	console.log(response);
+	
     if (!response.ok) {
       throw new Error(`Upload failed with status: ${response.status}`);
     }
