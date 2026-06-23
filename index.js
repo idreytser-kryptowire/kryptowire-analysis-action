@@ -1,44 +1,36 @@
 const core = require("@actions/core");
 const fs = require("fs");
-const FormData = require("form-data");
-const path = require('path');
+const path = require("path");
 
-async function downloadArtifact( uuid, apiKey, pathToFile ) {
-    let elapsed_time = 0;
-
-    while (true) {
-        try {
-            const url = `https://emm.kryptowire.com/api/results/sarif?uuid=${uuid}&regeneratePDF=false&key=${apiKey}`;
-            const response = await fetch(url);
-
-            if (response.status === 404) {
-                console.log(`UUID: ${uuid}. Artifacts not ready yet, waiting...${elapsed_time}s`);
-            } else if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            } else {
-                const contentDisposition = response.headers.get('content-disposition');
-
-                if (contentDisposition) {
-                    const arrayBuffer = await response.arrayBuffer();
-                    const buffer = Buffer.from(arrayBuffer);
-
-                    fs.writeFileSync(pathToFile + ".sarif", buffer);
-
-                    console.log(`Download complete. File saved as ${pathToFile}.sarif`);
-                    break;
-                }
-            }
-        } catch (error) {
-            if (error.name === 'TypeError' || error.code === 'ECONNREFUSED') {
-                console.log(`Connection error. Retrying...${elapsed_time}s`);
-                break;
-            }
-            throw error;
+async function downloadArtifact(uuid, apiKey, pathToFile) {
+  let elapsed_time = 0;
+  while (true) {
+    try {
+      const url = `https://emm.kryptowire.com/api/results/sarif?uuid=${uuid}&regeneratePDF=false&key=${apiKey}`;
+      const response = await fetch(url);
+      if (response.status === 404) {
+        console.log(`UUID: ${uuid}. Artifacts not ready yet, waiting...${elapsed_time}s`);
+      } else if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      } else {
+        const contentDisposition = response.headers.get("content-disposition");
+        if (contentDisposition) {
+          const arrayBuffer = await response.arrayBuffer();
+          fs.writeFileSync(pathToFile + ".sarif", Buffer.from(arrayBuffer));
+          console.log(`Download complete. File saved as ${pathToFile}.sarif`);
+          break;
         }
-
-        await new Promise(resolve => setTimeout(resolve, 20000));
-        elapsed_time += 20;
+      }
+    } catch (error) {
+      if (error.name === "TypeError" || error.code === "ECONNREFUSED") {
+        console.log(`Connection error. Retrying...${elapsed_time}s`);
+        break;
+      }
+      throw error;
     }
+    await new Promise((resolve) => setTimeout(resolve, 20000));
+    elapsed_time += 20;
+  }
 }
 
 async function run() {
@@ -49,37 +41,32 @@ async function run() {
     } else {
       console.log(`File Does Not Exist: ${pathToFile}`);
     }
-
     const platform = core.getInput("platform");
     const apiKey = core.getInput("apiKey");
+    console.log("apikey: " + apiKey);
 
-	console.log ("apikey: " + apiKey );
-	
     const formData = new FormData();
-    formData.append("key", apiKey);
+    formData.append("app", await fs.openAsBlob(pathToFile), path.basename(pathToFile));
     formData.append("platform", platform);
-	formData.append('app', await fs.openAsBlob(pathToFile), path.basename(pathToFile));
+    formData.append("key", apiKey);
 
-	const response = await fetch('https://api.kryptowire.com/api/submit', {
-      method: 'POST',
+    const uploadResponse = await fetch("https://api.kryptowire.com/api/submit", {
+      method: "POST",
       body: formData,
     });
 
-	console.log(response);
-	
-    if (!response.ok) {
-      throw new Error(`Upload failed with status: ${response.status}`);
+    if (!uploadResponse.ok) {
+      throw new Error(`Upload failed! status: ${uploadResponse.status}`);
     }
 
-    const body = await response.json();
-    console.log('Upload successful! Server responded with:', JSON.stringify(body));
+    const kwResponse = await uploadResponse.json();
+    console.log("Upload successful! Server responded with:", kwResponse);
+    console.log("KryptowireUUID:", kwResponse.uuid);
 
-    let kwResponse = body;
-    console.log("KryptowireUUID: ", kwResponse.uuid);
-    await downloadArtifact( kwResponse.uuid, apiKey, pathToFile );
-
+    await downloadArtifact(kwResponse.uuid, apiKey, pathToFile);
   } catch (err) {
     core.setFailed(err.message);
   }
 }
+
 run();
