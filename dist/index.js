@@ -1629,6 +1629,8 @@ async function run() {
       console.log(`File Does Not Exist: ${pathToFile}`);
     }
 
+	console.log("hi there");
+	
     const platform = core.getInput("platform");
     const apiKey = core.getInput("apiKey");
 
@@ -1637,13 +1639,13 @@ async function run() {
     form.append("platform", platform);
     form.append("app", fs.createReadStream(pathToFile));
 
-    const response = await fetch('https://emm.kryptowire.com/api/submit', {
+    const response = await fetch('https://api.kryptowire.com/api/submit', {
       method: 'POST',
       body: form,
       headers: form.getHeaders()
     });
 
-	console.log("hi there");
+
 	console.log(response);
     if (!response.ok) {
       throw new Error(`Upload failed with status: ${response.status}`);
