@@ -2,10 +2,12 @@
   "name": "quokka-analysis-action",
   "version": "1.0.0",
   "description": "Quokka (Kryptowire) Analysis Action",
-  "exports": { ".": "./dist/index.js" },
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "scripts": {
     "build": "ncc build index.js -o dist"
-  },  
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/idreytser-kryptowire/kryptowire-analysis-action.git"
