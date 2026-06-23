@@ -63,6 +63,8 @@ async function run() {
       headers: form.getHeaders()
     });
 
+	console.log("hi there");
+	console.log(response);
     if (!response.ok) {
       throw new Error(`Upload failed with status: ${response.status}`);
     }
