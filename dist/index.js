@@ -3636,6 +3636,30 @@ function descending(a, b)
 
 /***/ }),
 
+/***/ 866:
+/***/ ((module) => {
+
+//
+// So this might need some explanation. There are firewalls, virus scanners and
+// what more that inspect the contents of files that is downloaded over the
+// internet and search for potential bad words. Some of them assume that
+// ActiveXObject is a bad word and will block the complete file from loading. In
+// order to prevent this from happening we've pre-decoded the word ActiveXObject
+// by changing the charCodes.
+//
+module.exports = (function AXO(x, i) {
+  var target = typeof global !== 'undefined' ? global : window;
+
+  for (i = 0; i < x.length; i++) {
+    x[i] = String.fromCharCode(x[i].charCodeAt(0) + i);
+  }
+
+  return target[x.join('')];
+})('Abrfr`RHZa[Xh'.split(''));
+
+
+/***/ }),
+
 /***/ 2639:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -4236,6 +4260,558 @@ module.exports = function setToStringTag(object, value) {
 			object[toStringTag] = value; // eslint-disable-line no-param-reassign
 		}
 	}
+};
+
+
+/***/ }),
+
+/***/ 2415:
+/***/ ((module) => {
+
+"use strict";
+
+
+var has = Object.prototype.hasOwnProperty
+  , prefix = '~';
+
+/**
+ * Constructor to create a storage for our `EE` objects.
+ * An `Events` instance is a plain object whose properties are event names.
+ *
+ * @constructor
+ * @private
+ */
+function Events() {}
+
+//
+// We try to not inherit from `Object.prototype`. In some engines creating an
+// instance in this way is faster than calling `Object.create(null)` directly.
+// If `Object.create(null)` is not supported we prefix the event names with a
+// character to make sure that the built-in object properties are not
+// overridden or used as an attack vector.
+//
+if (Object.create) {
+  Events.prototype = Object.create(null);
+
+  //
+  // This hack is needed because the `__proto__` property is still inherited in
+  // some old browsers like Android 4, iPhone 5.1, Opera 11 and Safari 5.
+  //
+  if (!new Events().__proto__) prefix = false;
+}
+
+/**
+ * Representation of a single event listener.
+ *
+ * @param {Function} fn The listener function.
+ * @param {*} context The context to invoke the listener with.
+ * @param {Boolean} [once=false] Specify if the listener is a one-time listener.
+ * @constructor
+ * @private
+ */
+function EE(fn, context, once) {
+  this.fn = fn;
+  this.context = context;
+  this.once = once || false;
+}
+
+/**
+ * Add a listener for a given event.
+ *
+ * @param {EventEmitter} emitter Reference to the `EventEmitter` instance.
+ * @param {(String|Symbol)} event The event name.
+ * @param {Function} fn The listener function.
+ * @param {*} context The context to invoke the listener with.
+ * @param {Boolean} once Specify if the listener is a one-time listener.
+ * @returns {EventEmitter}
+ * @private
+ */
+function addListener(emitter, event, fn, context, once) {
+  if (typeof fn !== 'function') {
+    throw new TypeError('The listener must be a function');
+  }
+
+  var listener = new EE(fn, context || emitter, once)
+    , evt = prefix ? prefix + event : event;
+
+  if (!emitter._events[evt]) emitter._events[evt] = listener, emitter._eventsCount++;
+  else if (!emitter._events[evt].fn) emitter._events[evt].push(listener);
+  else emitter._events[evt] = [emitter._events[evt], listener];
+
+  return emitter;
+}
+
+/**
+ * Clear event by name.
+ *
+ * @param {EventEmitter} emitter Reference to the `EventEmitter` instance.
+ * @param {(String|Symbol)} evt The Event name.
+ * @private
+ */
+function clearEvent(emitter, evt) {
+  if (--emitter._eventsCount === 0) emitter._events = new Events();
+  else delete emitter._events[evt];
+}
+
+/**
+ * Minimal `EventEmitter` interface that is molded against the Node.js
+ * `EventEmitter` interface.
+ *
+ * @constructor
+ * @public
+ */
+function EventEmitter() {
+  this._events = new Events();
+  this._eventsCount = 0;
+}
+
+/**
+ * Return an array listing the events for which the emitter has registered
+ * listeners.
+ *
+ * @returns {Array}
+ * @public
+ */
+EventEmitter.prototype.eventNames = function eventNames() {
+  var names = []
+    , events
+    , name;
+
+  if (this._eventsCount === 0) return names;
+
+  for (name in (events = this._events)) {
+    if (has.call(events, name)) names.push(prefix ? name.slice(1) : name);
+  }
+
+  if (Object.getOwnPropertySymbols) {
+    return names.concat(Object.getOwnPropertySymbols(events));
+  }
+
+  return names;
+};
+
+/**
+ * Return the listeners registered for a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @returns {Array} The registered listeners.
+ * @public
+ */
+EventEmitter.prototype.listeners = function listeners(event) {
+  var evt = prefix ? prefix + event : event
+    , handlers = this._events[evt];
+
+  if (!handlers) return [];
+  if (handlers.fn) return [handlers.fn];
+
+  for (var i = 0, l = handlers.length, ee = new Array(l); i < l; i++) {
+    ee[i] = handlers[i].fn;
+  }
+
+  return ee;
+};
+
+/**
+ * Return the number of listeners listening to a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @returns {Number} The number of listeners.
+ * @public
+ */
+EventEmitter.prototype.listenerCount = function listenerCount(event) {
+  var evt = prefix ? prefix + event : event
+    , listeners = this._events[evt];
+
+  if (!listeners) return 0;
+  if (listeners.fn) return 1;
+  return listeners.length;
+};
+
+/**
+ * Calls each of the listeners registered for a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @returns {Boolean} `true` if the event had listeners, else `false`.
+ * @public
+ */
+EventEmitter.prototype.emit = function emit(event, a1, a2, a3, a4, a5) {
+  var evt = prefix ? prefix + event : event;
+
+  if (!this._events[evt]) return false;
+
+  var listeners = this._events[evt]
+    , len = arguments.length
+    , args
+    , i;
+
+  if (listeners.fn) {
+    if (listeners.once) this.removeListener(event, listeners.fn, undefined, true);
+
+    switch (len) {
+      case 1: return listeners.fn.call(listeners.context), true;
+      case 2: return listeners.fn.call(listeners.context, a1), true;
+      case 3: return listeners.fn.call(listeners.context, a1, a2), true;
+      case 4: return listeners.fn.call(listeners.context, a1, a2, a3), true;
+      case 5: return listeners.fn.call(listeners.context, a1, a2, a3, a4), true;
+      case 6: return listeners.fn.call(listeners.context, a1, a2, a3, a4, a5), true;
+    }
+
+    for (i = 1, args = new Array(len -1); i < len; i++) {
+      args[i - 1] = arguments[i];
+    }
+
+    listeners.fn.apply(listeners.context, args);
+  } else {
+    var length = listeners.length
+      , j;
+
+    for (i = 0; i < length; i++) {
+      if (listeners[i].once) this.removeListener(event, listeners[i].fn, undefined, true);
+
+      switch (len) {
+        case 1: listeners[i].fn.call(listeners[i].context); break;
+        case 2: listeners[i].fn.call(listeners[i].context, a1); break;
+        case 3: listeners[i].fn.call(listeners[i].context, a1, a2); break;
+        case 4: listeners[i].fn.call(listeners[i].context, a1, a2, a3); break;
+        default:
+          if (!args) for (j = 1, args = new Array(len -1); j < len; j++) {
+            args[j - 1] = arguments[j];
+          }
+
+          listeners[i].fn.apply(listeners[i].context, args);
+      }
+    }
+  }
+
+  return true;
+};
+
+/**
+ * Add a listener for a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @param {Function} fn The listener function.
+ * @param {*} [context=this] The context to invoke the listener with.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+EventEmitter.prototype.on = function on(event, fn, context) {
+  return addListener(this, event, fn, context, false);
+};
+
+/**
+ * Add a one-time listener for a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @param {Function} fn The listener function.
+ * @param {*} [context=this] The context to invoke the listener with.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+EventEmitter.prototype.once = function once(event, fn, context) {
+  return addListener(this, event, fn, context, true);
+};
+
+/**
+ * Remove the listeners of a given event.
+ *
+ * @param {(String|Symbol)} event The event name.
+ * @param {Function} fn Only remove the listeners that match this function.
+ * @param {*} context Only remove the listeners that have this context.
+ * @param {Boolean} once Only remove one-time listeners.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+EventEmitter.prototype.removeListener = function removeListener(event, fn, context, once) {
+  var evt = prefix ? prefix + event : event;
+
+  if (!this._events[evt]) return this;
+  if (!fn) {
+    clearEvent(this, evt);
+    return this;
+  }
+
+  var listeners = this._events[evt];
+
+  if (listeners.fn) {
+    if (
+      listeners.fn === fn &&
+      (!once || listeners.once) &&
+      (!context || listeners.context === context)
+    ) {
+      clearEvent(this, evt);
+    }
+  } else {
+    for (var i = 0, events = [], length = listeners.length; i < length; i++) {
+      if (
+        listeners[i].fn !== fn ||
+        (once && !listeners[i].once) ||
+        (context && listeners[i].context !== context)
+      ) {
+        events.push(listeners[i]);
+      }
+    }
+
+    //
+    // Reset the array, or remove it completely if we have no more listeners.
+    //
+    if (events.length) this._events[evt] = events.length === 1 ? events[0] : events;
+    else clearEvent(this, evt);
+  }
+
+  return this;
+};
+
+/**
+ * Remove all listeners, or those of the specified event.
+ *
+ * @param {(String|Symbol)} [event] The event name.
+ * @returns {EventEmitter} `this`.
+ * @public
+ */
+EventEmitter.prototype.removeAllListeners = function removeAllListeners(event) {
+  var evt;
+
+  if (event) {
+    evt = prefix ? prefix + event : event;
+    if (this._events[evt]) clearEvent(this, evt);
+  } else {
+    this._events = new Events();
+    this._eventsCount = 0;
+  }
+
+  return this;
+};
+
+//
+// Alias methods names because people roll like that.
+//
+EventEmitter.prototype.off = EventEmitter.prototype.removeListener;
+EventEmitter.prototype.addListener = EventEmitter.prototype.on;
+
+//
+// Expose the prefix.
+//
+EventEmitter.prefixed = prefix;
+
+//
+// Allow `EventEmitter` to be imported as module namespace.
+//
+EventEmitter.EventEmitter = EventEmitter;
+
+//
+// Expose the module.
+//
+if (true) {
+  module.exports = EventEmitter;
+}
+
+
+/***/ }),
+
+/***/ 2356:
+/***/ ((module) => {
+
+// 'use strict'; //<-- Root of all evil, causes thrown errors on readyOnly props.
+
+var has = Object.prototype.hasOwnProperty
+  , slice = Array.prototype.slice;
+
+/**
+ * Copy all readable properties from an Object or function and past them on the
+ * object.
+ *
+ * @param {Object} obj The object we should paste everything on.
+ * @returns {Object} obj
+ * @api private
+ */
+function copypaste(obj) {
+  var args = slice.call(arguments, 1)
+    , i = 0
+    , prop;
+
+  for (; i < args.length; i++) {
+    if (!args[i]) continue;
+
+    for (prop in args[i]) {
+      if (!has.call(args[i], prop)) continue;
+
+      obj[prop] = args[i][prop];
+    }
+  }
+
+  return obj;
+}
+
+/**
+ * A proper mixin function that respects getters and setters.
+ *
+ * @param {Object} obj The object that should receive all properties.
+ * @returns {Object} obj
+ * @api private
+ */
+function mixin(obj) {
+  if (
+       'function' !== typeof Object.getOwnPropertyNames
+    || 'function' !== typeof Object.defineProperty
+    || 'function' !== typeof Object.getOwnPropertyDescriptor
+  ) {
+    return copypaste.apply(null, arguments);
+  }
+
+  //
+  // We can safely assume that if the methods we specify above are supported
+  // that it's also save to use Array.forEach for iteration purposes.
+  //
+  slice.call(arguments, 1).forEach(function forEach(o) {
+    Object.getOwnPropertyNames(o).forEach(function eachAttr(attr) {
+      Object.defineProperty(obj, attr, Object.getOwnPropertyDescriptor(o, attr));
+    });
+  });
+
+  return obj;
+}
+
+/**
+ * Detect if a given parent is constructed in strict mode so we can force the
+ * child in to the same mode. It detects the strict mode by accessing properties
+ * on the function that are forbidden in strict mode:
+ *
+ * - `caller`
+ * - `callee`
+ * - `arguments`
+ *
+ * Forcing the a thrown TypeError.
+ *
+ * @param {Function} parent Parent constructor
+ * @returns {Function} The child constructor
+ * @api private
+ */
+function mode(parent) {
+  try {
+    var e = parent.caller || parent.arguments || parent.callee;
+
+    return function child() {
+      return parent.apply(this, arguments);
+    };
+  } catch(e) {}
+
+  return function child() {
+    'use strict';
+
+    return parent.apply(this, arguments);
+  };
+}
+
+//
+// Helper function to correctly set up the prototype chain, for subclasses.
+// Similar to `goog.inherits`, but uses a hash of prototype properties and
+// class properties to be extended.
+//
+module.exports = function extend(protoProps, staticProps) {
+  var parent = this
+    , child;
+
+  //
+  // The constructor function for the new subclass is either defined by you
+  // (the "constructor" property in your `extend` definition), or defaulted
+  // by us to simply call the parent's constructor.
+  //
+  if (protoProps && has.call(protoProps, 'constructor')) {
+    child = protoProps.constructor;
+  } else {
+    child = mode(parent);
+  }
+
+  //
+  // Set the prototype chain to inherit from `parent`, without calling
+  // `parent`'s constructor function.
+  //
+  function Surrogate() {
+    this.constructor = child;
+  }
+
+  Surrogate.prototype = parent.prototype;
+  child.prototype = new Surrogate;
+
+  //
+  // Add prototype properties (instance properties) to the subclass,
+  // if supplied.
+  //
+  if (protoProps) mixin(child.prototype, protoProps);
+
+  //
+  // Add static properties to the constructor function, if supplied.
+  //
+  copypaste(child, parent, staticProps);
+
+  //
+  // Set a convenience property in case the parent's prototype is needed later.
+  //
+  child.__super__ = parent.prototype;
+
+  return child;
+};
+
+
+/***/ }),
+
+/***/ 3514:
+/***/ ((module) => {
+
+"use strict";
+
+
+var has = Object.prototype.hasOwnProperty;
+
+/**
+ * Return an object with all the information that should be in the JSON output.
+ * It doesn't matter if we list keys that might not be in the err as the
+ * JSON.stringify will remove properties who's values are set to `undefined`. So
+ * we want to make sure that we include some common properties.
+ *
+ * @returns {Object}
+ * @api public
+ */
+function toJSON() {
+  var obj =  { message: this.message, stack: this.stack }, key;
+
+  for (key in this) {
+    if (
+         has.call(this, key)
+      && 'function' !== typeof this[key]
+    ) {
+      obj[key] = this[key];
+    }
+  }
+
+  return obj;
+}
+
+/**
+ * Generate a custom wrapped error object.
+ *
+ * @param {String|Error} err Error that needs to have additional properties.
+ * @param {Object} props Addition properties for the Error.
+ * @returns {Error} The generated or returned Error instance
+ * @api public
+ */
+module.exports = function failure(err, props) {
+  if (!err) err = 'Unspecified error';
+  if ('string' === typeof err) err = new Error(err);
+
+  if (props) for (var prop in props) {
+    if (!(prop in err) && has.call(props, prop)) {
+      err[prop] = props[prop];
+    }
+  }
+
+  //
+  // Add a custom `toJSON` method so we can generate a useful output when
+  // running these objects through JSON.stringify.
+  //
+  if ('function' !== typeof err.toJSON) err.toJSON = toJSON;
+  return err;
 };
 
 
@@ -5379,6 +5955,62 @@ module.exports = $gOPD;
 
 /***/ }),
 
+/***/ 5916:
+/***/ ((module) => {
+
+"use strict";
+
+
+/**
+ * Delay function calls only if they are not already ran async.
+ *
+ * @param {Function} fn Function that should be forced in async execution
+ * @returns {Function} A wrapped function that will called the supplied callback.
+ * @api public
+ */
+module.exports = function hang(fn) {
+  var start = +(new Date());
+
+  /**
+   * The wrapped function.
+   *
+   * @api private
+   */
+  function bro() {
+    var self = this;
+
+    //
+    // Time has passed since we've generated this function so we're going to
+    // assume that this function is already executed async.
+    //
+    if (+(new Date()) > start) {
+      return fn.apply(self, arguments);
+    }
+
+    for (var i = 0, l = arguments.length, args = new Array(l); i < l; i++) {
+      args[i] = arguments[i];
+    }
+
+    (global.setImmediate || global.setTimeout)(function delay() {
+      fn.apply(self, args);
+      self = args = null;
+    }, 0);
+  }
+
+  //
+  // To make debugging more easy we want to use the name of the supplied
+  // function. So when you look at the functions that are assigned to event
+  // listeners you don't see a load of `onetime` functions but actually the
+  // names of the functions that this module will call.
+  //
+  bro.displayName = fn.displayName || fn.name || bro.displayName || bro.name;
+
+  return bro;
+};
+
+
+/***/ }),
+
 /***/ 3336:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -5482,6 +6114,177 @@ var bind = __nccwpck_require__(7564);
 
 /** @type {import('.')} */
 module.exports = bind.call(call, $hasOwn);
+
+
+/***/ }),
+
+/***/ 9593:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+var response = __nccwpck_require__(4242)
+  , statuscode = __nccwpck_require__(7547)
+  , one = __nccwpck_require__(8186)
+  , fail = __nccwpck_require__(3514);
+
+/**
+ * Simple nope function that assigned to XHR requests as part of a clean-up
+ * operation.
+ *
+ * @api private
+ */
+function nope() {}
+
+/**
+ * Attach various of event listeners to a given XHR request.
+ *
+ * @param {XHR} xhr A XHR request that requires listening.
+ * @param {EventEmitter} ee EventEmitter that receives events.
+ * @api public
+ */
+function loads(xhr, ee) {
+  var onreadystatechange
+    , onprogress
+    , ontimeout
+    , onabort
+    , onerror
+    , onload
+    , timer;
+
+  /**
+   * Error listener.
+   *
+   * @param {Event} evt Triggered error event.
+   * @api private
+   */
+  onerror = xhr.onerror = one(function onerror(evt) {
+    var status = statuscode(xhr)
+      , err = fail(new Error('Network request failed'), status);
+
+    ee.emit('error', err);
+    ee.emit('end', err, status);
+  });
+
+  /**
+   * Fix for FireFox's odd abort handling behaviour. When you press ESC on an
+   * active request it triggers `error` instead of abort. The same is called
+   * when an HTTP request is canceled onunload.
+   *
+   * @see https://bugzilla.mozilla.org/show_bug.cgi?id=768596
+   * @see https://bugzilla.mozilla.org/show_bug.cgi?id=880200
+   * @see https://code.google.com/p/chromium/issues/detail?id=153570
+   * @param {Event} evt Triggerd abort event
+   * @api private
+   */
+  onabort = xhr.onabort = function onabort(evt) {
+    onerror(evt);
+  };
+
+  /**
+   * ReadyStateChange listener.
+   *
+   * @param {Event} evt Triggered readyState change event.
+   * @api private
+   */
+  onreadystatechange = xhr.onreadystatechange = function change(evt) {
+    var target = evt.target;
+
+    if (4 === target.readyState) return onload(evt);
+  };
+
+  /**
+   * The connection has timed out.
+   *
+   * @api private
+   */
+  ontimeout = xhr.ontimeout = one(function timeout(evt) {
+    ee.emit('timeout', evt);
+
+    //
+    // Make sure that the request is aborted when there is a timeout. If this
+    // doesn't trigger an error, the next call will.
+    //
+    if (xhr.abort) xhr.abort();
+    onerror(evt);
+  });
+
+  //
+  // Fallback for implementations that did not ship with timer support yet.
+  // Microsoft's XDomainRequest was one of the first to ship with `.timeout`
+  // support so we all XHR implementations before that require a polyfill.
+  //
+  // @see https://bugzilla.mozilla.org/show_bug.cgi?id=525816
+  //
+  if (xhr.timeout) timer = setTimeout(ontimeout, +xhr.timeout);
+
+  /**
+   * IE needs have it's `onprogress` function assigned to a unique function. So,
+   * no touchy touchy here!
+   *
+   * @param {Event} evt Triggered progress event.
+   * @api private
+   */
+  onprogress = xhr.onprogress = function progress(evt) {
+    var status = statuscode(xhr)
+      , data;
+
+    ee.emit('progress', evt, status);
+
+    if (xhr.readyState >= 3 && status.code === 200 && (data = response(xhr))) {
+      ee.emit('stream', data, status);
+    }
+  };
+
+  /**
+   * Handle load events an potential data events for when there was no streaming
+   * data.
+   *
+   * @param {Event} evt Triggered load event.
+   * @api private
+   */
+  onload = xhr.onload = one(function load(evt) {
+    var status = statuscode(xhr)
+      , data = response(xhr);
+
+    if (status.code < 100 || status.code > 599) return onerror(evt);
+
+    //
+    // There is a bug in FireFox's XHR2 implementation where status code 204
+    // triggers a "no element found" error and bad data. So to be save here,
+    // we're just **never** going to emit a `stream` event as for 204's there
+    // shouldn't be any content.
+    //
+    if (data && status.code !== 204) {
+      ee.emit('stream', data, status);
+    }
+
+    ee.emit('end', undefined, status);
+  });
+
+  //
+  // Properly clean up the previously assigned event listeners and timers to
+  // prevent potential data leaks and unwanted `stream` events.
+  //
+  ee.once('end', function cleanup() {
+    xhr.onreadystatechange = onreadystatechange =
+    xhr.onprogress = onprogress =
+    xhr.ontimeout = ontimeout =
+    xhr.onerror = onerror =
+    xhr.onabort = onabort =
+    xhr.onload = onload = nope;
+
+    if (timer) clearTimeout(timer);
+  });
+
+  return xhr;
+}
+
+//
+// Expose all the things.
+//
+module.exports = loads;
 
 
 /***/ }),
@@ -5802,6 +6605,1278 @@ function populateMaps (extensions, types) {
     }
   })
 }
+
+
+/***/ }),
+
+/***/ 2856:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+/**
+ * Node.js `XMLHttpRequest` implementation using `http.request()`.
+ *
+ * @module node-http-xhr
+ * @author Stan Zhang <stan.zhang2@gmail.com>
+ */
+
+var url = __nccwpck_require__(7016);
+var http = __nccwpck_require__(8611);
+var https = __nccwpck_require__(5692);
+
+var NodeXHREventTarget = __nccwpck_require__(4360);
+
+/**
+ * Currently-supported response types.
+ *
+ * @private
+ * @readonly
+ * @type {Object<String, Boolean>}
+ */
+var supportedResponseTypes = Object.freeze({
+  /** Text response (implicit) */
+  '': true,
+  /** Text response */
+  'text': true
+});
+
+/**
+ * Makes a request using either `http.request` or `https.request`, depending
+ * on the value of `opts.protocol`.
+ *
+ * @private
+ * @param {Object} opts - Options for the request.
+ * @param {Function} cb - Callback for request.
+ * @returns {ClientRequest} The request.
+ */
+function makeRequest(opts, cb) {
+  if (opts.protocol === 'http:') {
+    return http.request(opts, cb);
+  } else if (opts.protocol === 'https:') {
+    return https.request(opts, cb);
+  }
+
+  throw new Error('Unsupported protocol "' + opts.protcol + '"');
+}
+
+/**
+ * Creates a new `XMLHttpRequest`.
+ *
+ * @classdesc A wrapper around `http.request` that attempts to emulate the
+ * `XMLHttpRequest` API.
+ *
+ * NOTE: Currently, some features are lacking:
+ * - Some ProgressAPI events (`loadstart`, `loadend`, `progress`)
+ * - `responseType` values other than '' or 'text' and corresponding parsing
+ *   - As a result of the above, `overrideMimeType()` isn't very useful
+ * - `setRequestHeader()` doesn't check for forbidden headers.
+ * - `withCredentials` is defined as an instance property, but doesn't do
+ *   anything since there's no use case for CORS-like requests in `node.js`
+ *   right now.
+ *
+ * See {@link
+ * https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest
+ * `XMLHttpRequest` on MDN
+ * } for more details.
+ *
+ * @class
+ * @extends module:node-xhr-event-target
+ */
+module.exports = function () {
+  NodeXHREventTarget.call(this);
+
+  /**
+   * Current ready state.
+   *
+   * @private
+   */
+  this._readyState = this.UNSENT;
+
+  /**
+   * MIME type to use instead of the type specified by the response, or `null`
+   * to use the response MIME type.
+   *
+   * @type {?String}
+   * @private
+   */
+  this._mimetype = null;
+
+  /**
+   * Options for `http.request`.
+   *
+   * @see {@link
+   * https://nodejs.org/dist/latest/docs/api/http.html
+   * node.js `http` docs
+   * }
+   * @private
+   * @type {Object}
+   */
+  this._reqOpts = {
+    timeout: 0,
+    headers: {}
+  };
+
+  /**
+   * The request (instance of `http.ClientRequest`), or `null` if the request
+   * hasn't been sent.
+   *
+   * @private
+   * @type {?http.ClientRequest}
+   */
+  this._req = null;
+
+  /**
+   * The response (instance of `http.IncomingMessage`), or `null` if the
+   * response has not arrived yet.
+   *
+   * @private
+   * @type {?http.IncomingMessage}
+   */
+  this._resp = null;
+
+  /**
+   * The type of the response. Currently, only `''` and `'text'` are
+   * supported, which both indicate the response should be a `String`.
+   *
+   * @private
+   * @type {String}
+   * @default ''
+   */
+  this._responseType = '';
+
+  /**
+   * The current response text, or `null` if the request hasn't been sent or
+   * was unsuccessful.
+   *
+   * @private
+   * @type {?String}
+   */
+  this._responseText = null;
+};
+
+/** @alias module:node-http-xhr */
+var NodeHttpXHR = module.exports;
+
+//
+// Set up public API
+//
+NodeHttpXHR.prototype = Object.create(
+  NodeXHREventTarget.prototype,
+  /** @lends module:node-http-xhr.prototype */
+  {
+    /**
+     * Ready state indicating the request has been created, but `open()` has not
+     * been called yet.
+     *
+     * @type {Number}
+     * @default 0
+     * @readonly
+     */
+    UNSENT: { value: 0 },
+    /**
+     * Ready state indicating that `open()` has been called, but the headers
+     * have not been received yet.
+     *
+     * @type {Number}
+     * @default 1
+     * @readonly
+     */
+    OPENED: { value: 1 },
+    /**
+     * Ready state indicating that `send()` has been called and the response
+     * headers have been received.
+     *
+     * @type {Number}
+     * @default 2
+     * @readonly
+     */
+    HEADERS_RECEIVED: { value: 2 },
+    /**
+     * Ready state indicating that the response body is being loaded.
+     *
+     * @type {Number}
+     * @default 3
+     * @readonly
+     */
+    LOADING: { value: 3 },
+    /**
+     * Ready state indicating that the response has completed, or the request
+     * was aborted/encountered an error.
+     *
+     * @type {Number}
+     * @default 4
+     * @readonly
+     */
+    DONE: { value: 4 },
+    /**
+     * The current ready state.
+     *
+     * @type {Number}
+     * @readonly
+     */
+    readyState: {
+      get: function getReadyState() { return this._readyState; }
+    },
+    /**
+     * The status code for the response, or `0` if the response headers have
+     * not been received yet.
+     *
+     * @type {Number}
+     * @example 200
+     * @readonly
+     */
+    status: {
+      get: function getStatus() {
+        if (!this._resp) {
+          return 0;
+        }
+
+        return this._resp.statusCode;
+      }
+    },
+    /**
+     * The status text for the response, or `''` if the response headers have
+     * not been received yet.
+     *
+     * @type {String}
+     * @example 'OK'
+     * @readonly
+     */
+    statusText: {
+      get: function getStatusText() {
+        if (!this._resp) {
+          return '';
+        }
+
+        return this._resp.statusMessage;
+      }
+    },
+    /**
+     * The timeout for the request, in milliseconds. `0` means no timeout.
+     *
+     * @type {Number}
+     * @default 0
+     */
+    timeout: {
+      get: function getTimeout() { return this._reqOpts.timeout; },
+      set: function setTimeout(timeout) {
+        this._reqOpts.timeout = timeout;
+        if (this._req) {
+          this._req.setTimeout(timeout);
+        }
+      }
+    },
+    /**
+     * The type of the response. Currently, only `''` and `'text'` are
+     * supported, which both indicate the response should be a `String`.
+     *
+     * @see {@link
+     * https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/responseType
+     * `XMLHttpRequest.responseType` on MDN
+     * }
+     *
+     * @type {String}
+     * @default ''
+     */
+    responseType: {
+      get: function () { return this._responseType; },
+      set: function (responseType) {
+        if (!(responseType in supportedResponseTypes)) {
+          return;
+        }
+
+        this._responseType = responseType;
+      }
+    },
+    /**
+     * The response, encoded according to {@link
+     * module:node-http-xhr#responseType
+     * `responseType`
+     * }.
+     *
+     * If `send()` has not been called yet, this is `null`.
+     *
+     * If `responseType` is `''` or `'text'`, this is a `String` and will be
+     * be incomplete until the response actually finishes.
+     *
+     * @type {?*}
+     * @default ''
+     * @readonly
+     */
+    response: {
+      get: function getResponse() {
+        var type = this.responseType;
+        if (!(type in supportedResponseTypes)) {
+          throw new Error('Unsupported responseType "' + type + '"');
+        }
+
+        return this._responseText;
+      }
+    },
+    /**
+     * The response body as a string.
+     *
+     * If `send()` has not been called yet, this is `null`.
+     *
+     * This will be incomplete until the response actually finishes.
+     *
+     * @type {?String}
+     * @readonly
+     */
+    responseText: {
+      get: function getResponseText() { return this._responseText; }
+    },
+    /**
+     * Indicates whether or not cross-site `Access-Control` requests should be
+     * made using credentials such as cookies, authorization headers, or TLS
+     * client certificates.
+     *
+     * This flag doesn't do anything at the moment because there isn't much of
+     * a use case for doing CORS-like requests in Node.js at the moment.
+     *
+     * @type {Boolean}
+     * @default false
+     */
+    withCredentials: { value: false, writable: true }
+  }
+);
+
+/**
+ * Sets the ready state and emits the `readystatechange` event.
+ *
+ * @private
+ * @param {Number} readyState - The new ready state.
+ */
+NodeHttpXHR.prototype._setReadyState = function (readyState) {
+  this._readyState = readyState;
+  this.dispatchEvent({
+    type: 'readystatechange'
+  });
+};
+
+/**
+ * Aborts the request if it has already been sent.
+ */
+NodeHttpXHR.prototype.abort = function () {
+  if (this.readyState === this.UNSENT || this.readyState === this.DONE) {
+    return;
+  }
+
+  if (this._req) {
+    this._req.abort();
+  }
+};
+
+/**
+ * Returns all the response headers, separated by CRLF, as a string.
+ *
+ * @returns {?String} The response headers, or `null` if no response yet.
+ */
+NodeHttpXHR.prototype.getAllResponseHeaders = function () {
+  if (this.readyState < this.HEADERS_RECEIVED) {
+    return null;
+  }
+
+  var headers = this._resp.headers;
+  return Object.keys(headers).reduce(function (str, name) {
+    return str.concat(name + ': ' + headers[name] + '\r\n');
+  }, '');
+};
+
+/**
+ * Returns the string containing the text of the specified header.
+ *
+ * @param {String} name - The header's name.
+ * @returns {?String} The header's value, or `null` if no response yet or
+ * the header does not exist in the response.
+ */
+NodeHttpXHR.prototype.getResponseHeader = function (name) {
+  if (this.readyState < this.HEADERS_RECEIVED) {
+    return null;
+  }
+
+  return this._resp.headers[name.toLowerCase()] || null;
+};
+
+/**
+ * Initializes a request.
+ *
+ * @param {String} method - The HTTP method to use.
+ * @param {String} reqUrl - The URL to send the request to.
+ * @param {Boolean} [async=true] - Whether or not the request is asynchronous.
+ */
+NodeHttpXHR.prototype.open = function (method, reqUrl, async) {
+  if (async === false) {
+    throw new Error('Synchronous requests not implemented');
+  }
+
+  if (this._readyState > this.UNSENT) {
+    this.abort();
+    return;
+  }
+
+  var opts = this._reqOpts;
+  opts.method = method;
+
+  var urlObj = url.parse(reqUrl);
+  ['protocol', 'hostname', 'port', 'path'].forEach(function (key) {
+    if (key in urlObj) {
+      opts[key] = urlObj[key];
+    }
+  });
+
+  this._setReadyState(this.OPENED);
+};
+
+/**
+ * Overrides the MIME type returned by the server.
+ *
+ * Must be called before `#send()`.
+ *
+ * @param {String} mimetype - The MIME type to use.
+ */
+NodeHttpXHR.prototype.overrideMimeType = function (mimetype) {
+  if (this._req) {
+    throw new Error('overrideMimeType() called after send()');
+  }
+
+  this._mimetype = mimetype;
+};
+
+/**
+ * Sets the value of a request header.
+ *
+ * Must be called before `#send()`.
+ *
+ * @param {String} header - The header's name.
+ * @param {String} value - The header's value.
+ */
+NodeHttpXHR.prototype.setRequestHeader = function (header, value) {
+  if (this.readyState < this.OPENED) {
+    throw new Error('setRequestHeader() called before open()');
+  }
+
+  if (this._req) {
+    throw new Error('setRequestHeader() called after send()');
+  }
+
+  this._reqOpts.headers[header] = value;
+};
+
+/**
+ * Sends the request.
+ *
+ * @param {*} [data] - The request body.
+ */
+NodeHttpXHR.prototype.send = function (data) {
+  var onAbort = function onAbort() {
+    this._setReadyState(this.DONE);
+
+    this.dispatchEvent({
+      type: 'abort'
+    });
+  }.bind(this);
+
+  var opts = this._reqOpts;
+  var req = makeRequest(opts, function onResponse(resp) {
+    this._resp = resp;
+    this._responseText = '';
+
+    resp.setEncoding('utf8');
+    resp.on('data', function onData(chunk) {
+      this._responseText += chunk;
+
+      if (this.readyState !== this.LOADING) {
+        this._setReadyState(this.LOADING);
+      }
+    }.bind(this));
+
+    resp.on('end', function onEnd() {
+      this._setReadyState(this.DONE);
+      this.dispatchEvent({
+        type: 'load'
+      });
+    }.bind(this));
+
+    this._setReadyState(this.HEADERS_RECEIVED);
+  }.bind(this));
+
+  // Passing `opts.timeout` doesn't actually seem to set the timeout sometimes,
+  // so it is set manually here.
+  req.setTimeout(opts.timeout);
+
+  req.on('abort', onAbort);
+  req.on('aborted', onAbort);
+
+  req.on('timeout', function onTimeout() {
+    this._setReadyState(this.DONE);
+    this.dispatchEvent({
+      type: 'timeout'
+    });
+  }.bind(this));
+
+  req.on('error', function onError(err) {
+    if (this._listenerCount('error') < 1) {
+      // Uncaught error; throw something more meaningful
+      throw err;
+    }
+
+    // Dispatch an error event. The specification does not provide for any way
+    // to communicate the failure reason with the event object.
+    this.dispatchEvent({
+      type: 'error'
+    });
+
+    this._setReadyState(this.DONE);
+  }.bind(this));
+
+  if (data) {
+    req.write(data);
+  }
+  req.end();
+
+  this._req = req;
+};
+
+
+
+/***/ }),
+
+/***/ 8829:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+/**
+ * Node.js `EventTarget` implementation using Node's `EventEmitter`.
+ *
+ * @module node-event-target
+ * @author Stan Zhang <stan.zhang2@gmail.com>
+ */
+
+var EventEmitter = (__nccwpck_require__(4434).EventEmitter);
+
+/**
+ * Creates a new `EventTarget`.
+ *
+ * @classdesc The interface implemented by objects that can receive events and
+ * may have listeners for them.
+ *
+ * See {@link
+ * https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
+ * `EventTarget` on MDN
+ * } for more details.
+ *
+ * @class
+ */
+module.exports = function () {
+  EventEmitter.call(this);
+};
+
+/** @alias module:node-event-target */
+var EventTarget = module.exports;
+
+//
+// Inherit some EventEmitter functions as private functions
+//
+['on', 'removeListener', 'emit', 'listeners'].forEach(function (key) {
+  Object.defineProperty(EventTarget.prototype, '_' + key, {
+    value: EventEmitter.prototype[key]
+  });
+});
+
+Object.defineProperty(EventTarget.prototype, '_listenerCount', {
+  value: 'listenerCount' in EventEmitter.prototype
+  ? EventEmitter.prototype.listenerCount
+  // Shim `EventEmitter#listenerCount` support
+  : function (event) {
+    return this._listeners(event).length;
+  }
+});
+
+//
+// Wrap the event listener methods so that the `EventEmitter` events are not
+// exposed.
+//
+
+/**
+ * Adds an event listener.
+ *
+ * @see {@link
+ * https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener
+ * `EventTarget.addEventListener` on MDN
+ * }
+ * @param {String} type - The event type.
+ * @param {Function} listener - The callback.
+ * @param {Object} [options] - Options for the listener.
+ * @param {Boolean} [options.once=false] - Invoke listener once.
+ */
+EventTarget.prototype.addEventListener = function (type, listener, options) {
+  // Re-implement `#once()` behavior
+  // This is necessary because the built-in `#once()` calls functions that we've
+  // renamed on the prototype.
+  var fired = false;
+
+  /** @this NodeHttpXHR */
+  function onceListener() {
+    this._removeListener(type, onceListener);
+
+    if (!fired) {
+      fired = true;
+      listener.apply(this, arguments);
+    }
+  }
+
+  this._on(type, options && options.once
+    ? onceListener
+    : listener
+  );
+};
+
+/**
+ * Removes an event listener.
+ *
+ * @see {@link
+ * https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/removeEventListener
+ * `EventTarget.removeEventListener` on MDN
+ * }
+ * @param {String} type - The event type.
+ * @param {Function} listener - The callback.
+ */
+EventTarget.prototype.removeEventListener = function (type, listener) {
+  this._removeListener(type, listener);
+};
+
+/**
+ * Dispatches an event.
+ *
+ * @see {@link
+ * https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/dispatchEvent
+ * `EventTarget.dispatchEvent` on MDN
+ * }
+ * @param {Object} event - The event to dispatch.
+ */
+EventTarget.prototype.dispatchEvent = function (event) {
+  event.target = this;
+  this._emit(event.type, event);
+};
+
+
+
+/***/ }),
+
+/***/ 4360:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+/**
+ * Node.js `XMLHttpRequestEventTarget` implementation.
+ *
+ * @module node-xhr-event-target
+ * @author Stan Zhang <stan.zhang2@gmail.com>
+ */
+
+var EventTarget = __nccwpck_require__(8829);
+
+var events = [
+  /**
+   * The {@link
+   * module:node-http-xhr#readyState
+   * `readyState`
+   * } changed.
+   *
+   * @event module:node-xhr-event-target#readystatechange
+   */
+  'readystatechange',
+  /**
+   * The request was aborted.
+   *
+   * @event module:node-xhr-event-target#abort
+   */
+  'abort',
+  /**
+   * An error was encountered.
+   *
+   * @event module:node-xhr-event-target#error
+   * @type {Error}
+  */
+  'error',
+  /**
+   * The request timed out.
+   *
+   * @event module:node-xhr-event-target#timeout
+   */
+  'timeout',
+  /**
+   * The response finished loading.
+   *
+   * @event module:node-xhr-event-target#load
+   */
+  'load'
+];
+
+/**
+ * Creates a new `XMLHttpRequestEventTarget`.
+ *
+ * @classdesc The interface that describes the event handlers for an
+ * `XMLHttpRequest`.
+ *
+ * NOTE: Currently, some features are lacking:
+ * - Some ProgressAPI events (`loadstart`, `loadend`, `progress`)
+ *
+ * See {@link
+ * https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequestEventTarget
+ * `XMLHttpRequestEventTarget` on MDN
+ * } for more details.
+ *
+ * @class
+ * @extends module:node-event-target
+ */
+module.exports = function () {
+  EventTarget.call(this);
+
+  var props = {};
+
+  // Add private event handler properties
+  events.forEach(function (type) {
+    props['_on' + type] = { value: null, writable: true };
+  });
+
+  Object.defineProperties(this, props);
+};
+
+/** @alias module:node-xhr-event-target */
+var NodeXHREventTarget = module.exports;
+
+var protoProps = {};
+
+//
+// Set up event handler properties
+//
+events.forEach(function (type) {
+  var key = 'on' + type;
+  protoProps[key] = {
+    get: function getHandler() { return this['_' + key]; },
+    set: function setHandler(handler) {
+      if (typeof handler === 'function') {
+        this.addEventListener(type, handler);
+        this['_' + key] = handler;
+      } else {
+        var old = this['_' + key];
+        if (old) {
+          this.removeEventListener(type, old);
+        }
+
+        this['_' + key] = null;
+      }
+    }
+  };
+});
+
+NodeXHREventTarget.prototype = Object.create(
+  EventTarget.prototype, protoProps
+);
+
+
+
+/***/ }),
+
+/***/ 8186:
+/***/ ((module) => {
+
+"use strict";
+
+
+/**
+ * Wrap callbacks to prevent double execution.
+ *
+ * @param {Function} fn Function that should only be called once.
+ * @returns {Function} A wrapped callback which prevents execution.
+ * @api public
+ */
+module.exports = function one(fn) {
+  var called = 0
+    , value;
+
+  /**
+   * The function that prevents double execution.
+   *
+   * @api private
+   */
+  function onetime() {
+    if (called) return value;
+
+    called = 1;
+    value = fn.apply(this, arguments);
+    fn = null;
+
+    return value;
+  }
+
+  //
+  // To make debugging more easy we want to use the name of the supplied
+  // function. So when you look at the functions that are assigned to event
+  // listeners you don't see a load of `onetime` functions but actually the
+  // names of the functions that this module will call.
+  //
+  onetime.displayName = fn.displayName || fn.name || onetime.displayName || onetime.name;
+  return onetime;
+};
+
+
+/***/ }),
+
+/***/ 5798:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+var Requested = __nccwpck_require__(8722)
+  , listeners = __nccwpck_require__(9593)
+  , send = __nccwpck_require__(5883)
+  , hang = __nccwpck_require__(5916)
+  , AXO = __nccwpck_require__(866)
+  , XMLHttpRequest = __nccwpck_require__(2856);
+
+/**
+ * RequestS(tream).
+ *
+ * Options:
+ *
+ * - streaming: Should the request be streaming.
+ * - method: Which HTTP method should be used.
+ * - headers: Additional request headers.
+ * - mode: Enable CORS mode.
+ * - body: The payload for the request.
+ *
+ * @constructor
+ * @param {String} url The URL we want to request.
+ * @param {Object} options Various of request options.
+ * @api public
+ */
+var Requests = module.exports = Requested.extend({
+  constructor: function bobthebuilder(url, options) {
+    if (!(this instanceof Requests)) return new Requests(url, options);
+
+    Requested.apply(this, arguments);
+  },
+
+  /**
+   * The offset of data that we've already previously read
+   *
+   * @type {Number}
+   * @private
+   */
+  offset: 0,
+
+  /**
+   * The requests instance has been fully initialized.
+   *
+   * @param {String} url The URL we need to connect to.
+   * @api private
+   */
+  initialize: function initialize(url) {
+    this.socket = Requests[Requests.method](this);
+
+    //
+    // Open the socket BEFORE adding any properties to the instance as this might
+    // trigger a thrown `InvalidStateError: An attempt was made to use an object
+    // that is not, or is no longer, usable` error in FireFox:
+    //
+    // @see https://bugzilla.mozilla.org/show_bug.cgi?id=707484
+    //
+    this.socket.open(this.method.toUpperCase(), url, true);
+
+    //
+    // Register this as an active HTTP request.
+    //
+    Requests.active[this.id] = this;
+  },
+
+  /**
+   * Initialize and start requesting the supplied resource.
+   *
+   * @param {Object} options Passed in defaults.
+   * @api private
+   */
+  open: function open() {
+    var what
+      , slice = true
+      , requests = this
+      , socket = requests.socket;
+
+    requests.on('stream', function stream(data) {
+      if (!slice) {
+        return requests.emit('data', data);
+      }
+
+      //
+      // Please note that we need to use a method here that works on both string
+      // as well as ArrayBuffer's as we have no certainty that we're receiving
+      // text.
+      //
+      var chunk = data.slice(requests.offset);
+      requests.offset = data.length;
+
+      requests.emit('data', chunk);
+    });
+
+    requests.on('end', function cleanup() {
+      delete Requests.active[requests.id];
+    });
+
+    if (this.timeout) {
+      socket.timeout = +this.timeout;
+    }
+
+    if ('cors' === this.mode.toLowerCase() && 'withCredentials' in socket) {
+      socket.withCredentials = true;
+    }
+
+    //
+    // ActiveXObject will throw an `Type Mismatch` exception when setting the to
+    // an null-value and to be consistent with all XHR implementations we're going
+    // to cast the value to a string.
+    //
+    // While we don't technically support the XDomainRequest of IE, we do want to
+    // double check that the setRequestHeader is available before adding headers.
+    //
+    // Chrome has a bug where it will actually append values to the header instead
+    // of overriding it. So if you do a double setRequestHeader(Content-Type) with
+    // text/plain and with text/plain again, it will end up as `text/plain,
+    // text/plain` as header value. This is why use a headers object as it
+    // already eliminates duplicate headers.
+    //
+    for (what in this.headers) {
+      if (this.headers[what] !== undefined && this.socket.setRequestHeader) {
+        this.socket.setRequestHeader(what, this.headers[what] +'');
+      }
+    }
+
+    //
+    // Set the correct responseType method.
+    //
+    if (requests.streaming) {
+      if (!this.body || 'string' === typeof this.body) {
+        if ('multipart' in socket) {
+          socket.multipart = true;
+          slice = false;
+        } else if (Requests.type.mozchunkedtext) {
+          socket.responseType = 'moz-chunked-text';
+          slice = false;
+        }
+      } else {
+        if (Requests.type.mozchunkedarraybuffer) {
+          socket.responseType = 'moz-chunked-arraybuffer';
+        } else if (Requests.type.msstream) {
+          socket.responseType = 'ms-stream';
+        }
+      }
+    }
+
+    listeners(socket, requests, requests.streaming);
+    requests.emit('before', socket);
+
+    send(socket, this.body, hang(function send(err) {
+      if (err) {
+        requests.emit('error', err);
+        requests.emit('end', err);
+      }
+
+      requests.emit('send');
+    }));
+  },
+
+  /**
+   * Completely destroy the running XHR and release of the internal references.
+   *
+   * @returns {Boolean} Successful destruction
+   * @api public
+   */
+  destroy: function destroy() {
+    if (!this.socket) return false;
+
+    this.emit('destroy');
+
+    this.socket.abort();
+    this.removeAllListeners();
+
+    this.headers = {};
+    this.socket = null;
+    this.body = null;
+
+    delete Requests.active[this.id];
+
+    return true;
+  }
+});
+
+/**
+ * Create a new XMLHttpRequest.
+ *
+ * @returns {XMLHttpRequest}
+ * @api private
+ */
+Requests.XHR = function create() {
+  try { return new XMLHttpRequest(); }
+  catch (e) {}
+};
+
+/**
+ * Create a new ActiveXObject which can be used for XHR.
+ *
+ * @returns {ActiveXObject}
+ * @api private
+ */
+Requests.AXO = function create() {
+  var ids = ['MSXML2.XMLHTTP.6.0', 'MSXML2.XMLHTTP.3.0', 'Microsoft.XMLHTTP']
+    , id;
+
+  while (ids.length) {
+    id = ids.shift();
+
+    try { return new AXO(id); }
+    catch (e) {}
+  }
+};
+
+/**
+ * Requests that are currently running.
+ *
+ * @type {Object}
+ * @private
+ */
+Requests.active = {};
+
+/**
+ * The type of technology we are using to establish a working Ajax connection.
+ * This can either be:
+ *
+ * - XHR: XMLHttpRequest
+ * - AXO: ActiveXObject
+ *
+ * This is also used as internal optimization so we can easily get the correct
+ * constructor as we've already feature detected it.
+ *
+ * @type {String}
+ * @public
+ */
+Requests.method = !!Requests.XHR() ? 'XHR' : (!!Requests.AXO() ? 'AXO' : '');
+
+/**
+ * Boolean indicating
+ *
+ * @type {Boolean}
+ * @public
+ */
+Requests.supported = !!Requests.method;
+
+/**
+ * The different type of `responseType` parsers that are supported in this XHR
+ * implementation.
+ *
+ * @type {Object}
+ * @public
+ */
+Requests.type = 'XHR' === Requests.method ? (function detect() {
+  var types = 'arraybuffer,blob,document,json,text,moz-blob,moz-chunked-text,moz-chunked-arraybuffer,ms-stream'.split(',')
+    , supported = {}
+    , type, xhr, prop;
+
+  while (types.length) {
+    type = types.pop();
+    prop = type.replace(/-/g, '');
+    xhr = Requests.XHR();
+
+    //
+    // Older versions of Firefox/IE11 will throw an error because previous
+    // version of the specification do not support setting `responseType`
+    // before the request is opened. Thus, we open the request here.
+    //
+    // Note that `open()` does not actually open any connections; it just
+    // initializes the request object.
+    //
+    try {
+      // Try opening a request to current page.
+      xhr.open('get', '/', true);
+    } catch (e) {
+      // In JSDOM the above will fail because it only supports full URLs, so
+      // try opening a request to localhost.
+      try {
+        xhr.open('get', 'http://localhost/', true);
+      } catch (err) {
+        supported[prop] = false;
+        continue;
+      }
+    }
+
+    try {
+      xhr.responseType = type;
+      supported[prop] = 'response' in xhr && xhr.responseType === type;
+    } catch (e) {
+      supported[prop] = false;
+    }
+
+    xhr = null;
+  }
+
+  return supported;
+}()) : {};
+
+/**
+ * Do we support streaming response parsing.
+ *
+ * @type {Boolean}
+ * @private
+ */
+Requests.streaming = 'XHR' === Requests.method && (
+     'multipart' in XMLHttpRequest.prototype
+  || Requests.type.mozchunkedarraybuffer
+  || Requests.type.mozchunkedtext
+  || Requests.type.msstream
+  || Requests.type.mozblob
+);
+
+//
+// IE has a bug which causes IE10 to freeze when close WebPage during an XHR
+// request: https://support.microsoft.com/kb/2856746
+//
+// The solution is to completely clean up all active running requests.
+//
+if (global.attachEvent) global.attachEvent('onunload', function reap() {
+  for (var id in Requests.active) {
+    Requests.active[id].destroy();
+  }
+});
+
+//
+// Expose the Requests library.
+//
+module.exports = Requests;
+
+
+/***/ }),
+
+/***/ 8722:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+var EventEmitter = __nccwpck_require__(2415);
+
+function Requested(url, options) {
+  EventEmitter.call(this);
+
+  //
+  // All properties/options that should be introduced on the prototype.
+  //
+  this.merge(this, Requested.defaults, options || {});
+
+  //
+  // Private properties that should not be overridden by developers.
+  //
+  this.id = ++Requested.requested;
+
+  //
+  // We want to implement a stream like interface on top of this module so it
+  // can be used to read streaming data in node as well as through browserify.
+  //
+  this.readable = true;
+  this.writable = false;
+
+  if (this.initialize) this.initialize(url);
+  if (!this.manual && this.open) this.open(url);
+}
+
+Requested.extend = __nccwpck_require__(2356);
+Requested.prototype = new EventEmitter();
+Requested.prototype.constructor = Requested;
+
+
+/**
+ * Accurate type discovery.
+ *
+ * @param {Mixed} what What ever needs to be figured out.
+ * @returns {String} Name of the type.
+ * @api private
+ */
+Requested.prototype.typeof = function type(what) {
+  return Object.prototype.toString.call(what).slice(8, -1).toLowerCase();
+};
+
+/**
+ * Deeply assign and merge objects together.
+ *
+ * @param {Object} target The target object that should receive the merged data.
+ * @returns {Object} The merged target object.
+ * @api private
+ */
+Requested.prototype.merge = function merge(target) {
+  var i = 1
+    , arg, key;
+
+  for (; i < arguments.length; i++) {
+    arg = arguments[i];
+
+    for (key in arg) {
+      if (!Object.prototype.hasOwnProperty.call(arg, key)) continue;
+
+      if ('object' === this.typeof(arg[key])) {
+        target[key] = this.merge('object' === this.typeof(target[key]) ? target[key] : {}, arg[key]);
+      } else {
+        target[key] = arg[key];
+      }
+    }
+  }
+
+  return target;
+};
+
+/**
+ * The defaults for the Requests. These values will be used if no options object
+ * or matching key is provided. It can be override globally if needed but this
+ * is not advised as it can have some potential side affects for other libraries
+ * that use this module.
+ *
+ * @type {Object}
+ * @public
+ */
+Requested.defaults = {
+  streaming: false,
+  manual: false,
+  method: 'GET',
+  mode: 'cors',
+  headers: {
+    //
+    // We're forcing text/plain mode by default to ensure that regular
+    // requests can benefit from CORS requests without an OPTIONS request. It's
+    // shared between server and client implementations to ensure that requests
+    // are handled in exactly the same way.
+    //
+    'Content-Type': 'text/plain'
+  }
+};
+
+/**
+ * Unique id and also an indication on how many XHR requests we've made using
+ * this library.
+ *
+ * @type {Number}
+ * @private
+ */
+Requested.requested = 0;
+
+//
+// Expose the module interface.
+//
+module.exports = Requested;
 
 
 /***/ }),
@@ -28254,10 +30329,136 @@ module.exports = {
 
 /***/ }),
 
-/***/ 9167:
+/***/ 4242:
 /***/ ((module) => {
 
-module.exports = eval("require")("requests");
+"use strict";
+
+
+/**
+ * Safely access the response body.
+ *
+ * @param {XHR} xhr XHR request who's body we need to safely extract.
+ * @returns {Mixed} The response body.
+ * @api public
+ */
+module.exports = function get(xhr) {
+  if (xhr.response) return xhr.response;
+
+  var type = xhr.responseType || '';
+
+  //
+  // Browser bugs:
+  //
+  // IE<10:   Accessing binary data's responseText will throw an Exception
+  // Chrome:  When responseType is set to Blob it will throw errors even when
+  //          Accessing the responseText property.
+  //
+  // Firefox: An error is thrown when reading the `responseText` after unload
+  //          when responseType is using a `moz-chunked-*` type.
+  //          https://bugzilla.mozilla.org/show_bug.cgi?id=687087
+  //
+  if (~type.indexOf('moz-chunked') && xhr.readyState === 4) return;
+  if ('blob' !== type && 'string' === typeof xhr.responseText) {
+    return xhr.responseText || xhr.responseXML;
+  }
+};
+
+
+/***/ }),
+
+/***/ 5883:
+/***/ ((module) => {
+
+"use strict";
+
+
+/**
+ * Safely send data over XHR.
+ *
+ * @param {XHR} xhr The XHR object that we should send.
+ * @param {Mixed} data The data that needs to be send.
+ * @param {Function} fn Send callback.
+ * @returns {Boolean} Successful sending
+ * @api public
+ */
+module.exports = function send(xhr, data, fn) {
+  //
+  // @TODO detect binary data.
+  // @TODO polyfill sendAsBinary (firefoxy only)?
+  //
+  try { xhr.send(data); }
+  catch (e) { return fn(e), false; }
+
+  //
+  // Call the completion callback __after__ the try catch to prevent unwanted
+  // and extended try wrapping.
+  //
+  return fn(), true;
+};
+
+
+/***/ }),
+
+/***/ 7547:
+/***/ ((module) => {
+
+"use strict";
+
+
+/**
+ * Get the correct status code for a given XHR request.
+ *
+ * @param {XHR} xhr A XHR request who's status code needs to be retrieved.
+ * @returns {Object}
+ * @api public
+ */
+module.exports = function status(xhr) {
+  var local = /^file:/.test(xhr.responseURL)
+    , code = xhr.status
+    , text = '';
+
+  //
+  // Older version IE incorrectly return status code 1233 for requests that
+  // respond with a 204 header.
+  //
+  // @see http://stackoverflow.com/q/10046972
+  //
+  if (1233 === code) return {
+    error: false,
+    text: 'OK',
+    code: 204
+  };
+
+  //
+  // If you make a request with a file:// protocol it returns status code 0 by
+  // default so we're going to assume 200 instead. But if you do a HTTP request
+  // to dead server you will also get the same 0 response code in chrome. So
+  // we're going to assume statusCode 200 for local files.
+  //
+  if (0 === code) return local ? {
+    error: false,
+    text: 'OK',
+    code: 200
+  } : {
+    error: true,
+    text: 'An unknown error occured',
+    code: 0
+  };
+
+  //
+  // FireFox will throw an error when accessing the statusText on faulty
+  // cross-domain requests.
+  //
+  try { text = xhr.statusText; }
+  catch (e) {}
+
+  return {
+    error: code >= 400,
+    text: text,
+    code: code
+  };
+};
 
 
 /***/ }),
@@ -30185,7 +32386,7 @@ var __webpack_exports__ = {};
 const core = __nccwpck_require__(7484);
 const fs = __nccwpck_require__(9896);
 const FormData = __nccwpck_require__(6454);
-const requests = __nccwpck_require__(9167);
+const requests = __nccwpck_require__(5798);
 async function downloadArtifact( uuid, apiKey, pathToFile ) {
     let elapsed_time = 0;
 
