@@ -30233,7 +30233,7 @@ async function run() {
     const form = new FormData();
     form.append("key", apiKey);
     form.append("platform", platform);
-    form.append("app", new Blob([fs.readFileSync('pathToFile')]), 'pathToFile');
+    form.append("app", new Blob([fs.readFileSync(pathToFile)]), path.basename(pathToFile));
 
 
 	const response = await fetch('https://api.kryptowire.com/api/submit', {
