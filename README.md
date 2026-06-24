@@ -9,7 +9,7 @@ This action takes the file path, platform & API key as input and submits the app
 - Go to **Settings**
 - Select **Secrets** under left column
 - Click on **New Secret**
-- Provide **Name: KRYPTOWIRE_API_KEY** & **Value** as your own Kryptowire API Key
+- Provide **Name: QUOKKA_API_KEY** & **Value** as your own Kryptowire API Key
 - Click on **Add Secret**
 
 ## Inputs
@@ -25,7 +25,7 @@ This action takes the file path, platform & API key as input and submits the app
 ### `apiKey`
 
 **Required** API key of the user.
-**Default** \${{ secrets.KRYPTOWIRE_API_KEY }}
+**Default** \${{ secrets.QUOKKA_API_KEY }}
 
 ## Outputs
 
@@ -36,16 +36,10 @@ UUID of the submitted app for analysis.
 ## Example usage
 
 steps:
-
-    - uses: actions/download-artifact@v2
+      - name: Quokka Analysis
+        uses: idreytser-kryptowire/kryptowire-analysis-action@v1.29
         with:
-            name: app # Name of artifact holding the app file
-            path: path/to/artifact
-
-    - name: Kryptowire Analysis Submission
-        id: appSubmission
-        uses: pkumar001/kryptowire-analysis-action@master
-        with:
-            path-to-file: path/to/artifact/app-prod-debug.apk
-            platform: "android"
-            apiKey: ${{ secrets.KRYPTOWIRE_API_KEY }}
+          path-to-file: ${{ env.path-to-file }}
+          platform: android
+          apiKey: ${{ secrets.QUOKKA_API_KEY }}
+          
