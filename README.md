@@ -37,7 +37,7 @@ UUID of the submitted app for analysis.
 
 steps:  
   \- name: Quokka Analysis  
-    uses: idreytser-kryptowire/kryptowire-analysis-action@v1.30  
+    uses: idreytser-kryptowire/kryptowire-analysis-action@v1.3  
       with:
     
         path-to-file: ${{ env.path-to-file }}  
