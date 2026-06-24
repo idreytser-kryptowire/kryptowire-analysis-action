@@ -35,9 +35,9 @@ UUID of the submitted app for analysis.
 
 ## Example usage
 
-steps: 
-  - name: Quokka Analysis 
-    uses: idreytser-kryptowire/kryptowire-analysis-action@v1.29<br \>     
+steps: &nbsp;
+  - name: Quokka Analysis  &nbsp;
+    uses: idreytser-kryptowire/kryptowire-analysis-action@v1.29  &nbsp;
       with:<br \>     
         path-to-file: ${{ env.path-to-file }}<br \>     
         platform: android<br \>     
