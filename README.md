@@ -43,9 +43,6 @@ steps:
     
       with:
     
-        path-to-file: ${{ env.path-to-file }}
-    
-        platform: android
-    
-        apiKey: ${{ secrets.QUOKKA_API_KEY }}
-    
+        path-to-file: ${{ env.path-to-file }}  
+        platform: android  
+        apiKey: ${{ secrets.QUOKKA_API_KEY }}  
