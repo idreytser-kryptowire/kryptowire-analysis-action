@@ -36,7 +36,7 @@ UUID of the submitted app for analysis.
 ## Example usage
 
 steps:  
-  - name: Quokka Analysis  
+  \- name: Quokka Analysis  
     uses: idreytser-kryptowire/kryptowire-analysis-action@v1.30  
       with:
     
