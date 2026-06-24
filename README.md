@@ -35,16 +35,10 @@ UUID of the submitted app for analysis.
 
 ## Example usage
 
-steps:  
-  - name: Quokka Analysis
-    
-    uses: idreytser-kryptowire/kryptowire-analysis-action@v1.29
-    
-      with:
-    
-        path-to-file: ${{ env.path-to-file }}
-    
-        platform: android
-    
-        apiKey: ${{ secrets.QUOKKA_API_KEY }}  
-		
+steps:<br \> 
+  - name: Quokka Analysis<br \> 
+    uses: idreytser-kryptowire/kryptowire-analysis-action@v1.29<br \>     
+      with:<br \>     
+        path-to-file: ${{ env.path-to-file }}<br \>     
+        platform: android<br \>     
+        apiKey: ${{ secrets.QUOKKA_API_KEY }}  <br \> 		
