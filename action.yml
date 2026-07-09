@@ -10,6 +10,10 @@ inputs:
   apiKey:
     description: "API Key for the user"
     required: true
+  fast-scan:
+    description: "Enable fast scan (lite scan) mode"
+    required: false
+    default: "false"
 runs:
   using: 'node20'
   main: 'dist/index.js' 

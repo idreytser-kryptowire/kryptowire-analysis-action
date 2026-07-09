@@ -27,6 +27,11 @@ This action takes the file path, platform & API key as input and submits the app
 **Required** API key of the user.
 **Default** \${{ secrets.QUOKKA_API_KEY }}
 
+### `fast-scan`
+
+**Optional** Enable fast scan (lite scan) mode. Set to `true` to enable.
+**Default** `false`
+
 ## Outputs
 
 ### `Quokka UUID`
@@ -43,4 +48,5 @@ steps:
         path-to-file: ${{ env.path-to-file }}  
         platform: android  
         apiKey: ${{ secrets.QUOKKA_API_KEY }}
+        fast-scan: true
 ```

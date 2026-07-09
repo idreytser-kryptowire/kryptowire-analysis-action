@@ -43,12 +43,16 @@ async function run() {
     }
     const platform = core.getInput("platform");
     const apiKey = core.getInput("apiKey");
+    const fastScan = core.getInput("fast-scan").toLowerCase() === "true";
     console.log("apikey: " + apiKey);
 
     const formData = new FormData();
     formData.append("app", await fs.openAsBlob(pathToFile), path.basename(pathToFile));
     formData.append("platform", platform);
     formData.append("key", apiKey);
+    if (fastScan) {
+      formData.append("litescan", "true");
+    }
 
     const uploadResponse = await fetch("https://api.kryptowire.com/api/submit", {
       method: "POST",
